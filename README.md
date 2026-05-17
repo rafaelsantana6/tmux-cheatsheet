@@ -2,6 +2,11 @@
 
 Este repositório publica um cheatsheet estático para consultar os atalhos de tmux configurados em `~/.config/tmux/tmux.conf`.
 
+## Links
+
+- GitHub Pages: https://rafaelsantana6.github.io/tmux-cheatsheet/
+- Repositório: https://github.com/rafaelsantana6/tmux-cheatsheet
+
 - Página HTML: `index.html`
 - Skill para agentes: `.agents/skills/tmux-cheatsheet/`
 - Config base: tmux `3.6a`, prefix principal `Ctrl+Espaço`, prefix secundário `Ctrl+b`

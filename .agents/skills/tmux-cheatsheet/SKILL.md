@@ -14,7 +14,7 @@ Rafael's current tmux config was read from:
 - `~/.config/tmux/tmux.conf`
 - tmux version observed: `tmux 3.6a`
 - static cheatsheet page: `~/tutorial-tmux.html`
-- published site, if available: GitHub Pages for this repository
+- published site: `https://rafaelsantana6.github.io/tmux-cheatsheet/`
 
 If the user asks whether the config changed, inspect `~/.config/tmux/tmux.conf` before answering.
 
