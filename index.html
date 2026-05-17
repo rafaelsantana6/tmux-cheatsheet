@@ -1,0 +1,887 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guia tmux do Rafael</title>
+  <style>
+    :root {
+      --ink: #f4ead7;
+      --ink-muted: #c5b89f;
+      --paper: #17130e;
+      --paper-2: #211a12;
+      --paper-3: #2d2318;
+      --blue: #4da3ff;
+      --blue-deep: #1669be;
+      --amber: #ffbf5f;
+      --green: #90d26d;
+      --red: #ff756c;
+      --line: rgba(244, 234, 215, .15);
+      --line-strong: rgba(244, 234, 215, .28);
+      --shadow: 0 24px 80px rgba(0, 0, 0, .45);
+      --radius-xl: 30px;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --mono: "JetBrains Mono", "Cascadia Code", "Fira Code", "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      --sans: Avenir Next, Gill Sans, Trebuchet MS, Verdana, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 8%, rgba(77, 163, 255, .22), transparent 32rem),
+        radial-gradient(circle at 82% 12%, rgba(255, 191, 95, .16), transparent 25rem),
+        linear-gradient(135deg, #0f0d0a 0%, #17130e 42%, #251a10 100%);
+      font-family: var(--sans);
+      line-height: 1.55;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .2;
+      background-image:
+        linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: linear-gradient(to bottom, black, transparent 80%);
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .06;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E");
+      mix-blend-mode: screen;
+    }
+
+    a { color: inherit; }
+    code, kbd, pre { font-family: var(--mono); }
+
+    .shell-frame {
+      width: min(1180px, calc(100% - 32px));
+      margin: 24px auto 80px;
+      border: 1px solid var(--line-strong);
+      border-radius: 36px;
+      background: rgba(23, 19, 14, .78);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .topbar {
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      font-family: var(--mono);
+      color: var(--ink-muted);
+      font-size: 13px;
+    }
+
+    .dots { display: flex; gap: 8px; align-items: center; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot.red { background: #ff6159; }
+    .dot.amber { background: #ffbd2e; }
+    .dot.green { background: #28c840; }
+    .path { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .hero {
+      padding: clamp(28px, 6vw, 72px);
+      position: relative;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr);
+      gap: clamp(24px, 5vw, 56px);
+      align-items: start;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 12px;
+      border: 1px solid rgba(77, 163, 255, .45);
+      border-radius: 999px;
+      color: #bddaed;
+      background: rgba(77, 163, 255, .1);
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 0 rgba(144, 210, 109, .72);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      70% { box-shadow: 0 0 0 12px rgba(144, 210, 109, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(144, 210, 109, 0); }
+    }
+
+    h1 {
+      margin: 24px 0 18px;
+      font-family: var(--serif);
+      font-size: clamp(48px, 9vw, 108px);
+      line-height: .88;
+      letter-spacing: -.065em;
+      max-width: 9ch;
+    }
+
+    .lead {
+      max-width: 640px;
+      color: var(--ink-muted);
+      font-size: clamp(17px, 2vw, 22px);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 44px;
+      padding: 11px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--line-strong);
+      text-decoration: none;
+      color: var(--ink);
+      background: rgba(255,255,255,.06);
+      transition: transform .2s ease, border-color .2s ease, background .2s ease;
+      font-weight: 700;
+    }
+
+    .button.primary {
+      color: #07111c;
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--blue), #9bd0ff);
+      box-shadow: 0 14px 34px rgba(77, 163, 255, .25);
+    }
+
+    .button:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.45); }
+
+    .summary-card {
+      border: 1px solid rgba(255, 191, 95, .28);
+      border-radius: var(--radius-xl);
+      background:
+        linear-gradient(180deg, rgba(255, 191, 95, .12), rgba(255,255,255,.035)),
+        rgba(21, 17, 12, .74);
+      box-shadow: 0 18px 60px rgba(0,0,0,.28);
+      padding: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .summary-card::before {
+      content: "";
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      right: -70px;
+      top: -80px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(77,163,255,.34), transparent 68%);
+    }
+
+    .summary-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .summary-head h2,
+    .section-title h2 {
+      margin: 0;
+      font-family: var(--serif);
+      letter-spacing: -.035em;
+    }
+
+    .badge {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--paper);
+      background: var(--amber);
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      position: relative;
+    }
+
+    .quick-command {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(0,0,0,.2);
+      padding: 13px;
+      min-height: 110px;
+      transition: transform .2s ease, border-color .2s ease, background .2s ease;
+    }
+
+    .quick-command:hover {
+      transform: translateY(-3px) rotate(-.4deg);
+      border-color: rgba(77,163,255,.55);
+      background: rgba(77,163,255,.08);
+    }
+
+    .keys {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 9px;
+    }
+
+    kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      padding: 3px 8px;
+      color: #f8f1e4;
+      border: 1px solid rgba(255,255,255,.23);
+      border-bottom-color: rgba(0,0,0,.65);
+      border-radius: 8px;
+      background: linear-gradient(180deg, #3a2d20, #1c150f);
+      box-shadow: inset 0 1px rgba(255,255,255,.12), 0 3px 0 rgba(0,0,0,.36);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .quick-command strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 3px;
+    }
+
+    .quick-command span {
+      display: block;
+      color: var(--ink-muted);
+      font-size: 13px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 0;
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--line);
+      padding: 24px 18px;
+      position: sticky;
+      top: 0;
+      align-self: start;
+      max-height: 100vh;
+      overflow: auto;
+    }
+
+    .sidebar h2 {
+      margin: 0 0 14px;
+      color: var(--ink-muted);
+      font-family: var(--mono);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .14em;
+    }
+
+    .nav-link {
+      display: block;
+      padding: 9px 11px;
+      border-radius: 12px;
+      color: var(--ink-muted);
+      text-decoration: none;
+      font-size: 14px;
+      border: 1px solid transparent;
+    }
+
+    .nav-link:hover,
+    .nav-link.active {
+      color: var(--ink);
+      border-color: var(--line);
+      background: rgba(255,255,255,.05);
+    }
+
+    main { padding: clamp(24px, 5vw, 56px); }
+
+    section {
+      scroll-margin-top: 24px;
+      margin-bottom: 56px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 16px;
+    }
+
+    .section-title h2 {
+      font-size: clamp(30px, 4vw, 52px);
+    }
+
+    .section-title p {
+      margin: 0;
+      color: var(--ink-muted);
+      max-width: 360px;
+      text-align: right;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: rgba(255,255,255,.045);
+      padding: 20px;
+      margin: 16px 0;
+    }
+
+    .concept-grid,
+    .command-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .concept {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      background: linear-gradient(180deg, rgba(77,163,255,.08), rgba(255,255,255,.035));
+    }
+
+    .concept b {
+      display: block;
+      font-family: var(--serif);
+      font-size: 24px;
+      letter-spacing: -.03em;
+      margin-bottom: 6px;
+    }
+
+    .concept p { margin: 0; color: var(--ink-muted); }
+
+    .terminal {
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid rgba(77,163,255,.28);
+      background: #080a0b;
+      margin: 16px 0;
+    }
+
+    .terminal-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: linear-gradient(90deg, rgba(77,163,255,.16), rgba(255,255,255,.04));
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      color: var(--ink-muted);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    pre {
+      margin: 0;
+      padding: 18px;
+      overflow: auto;
+      color: #d7f8ff;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .copy-btn {
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 6px 9px;
+      cursor: pointer;
+    }
+
+    .copy-btn:hover { background: rgba(77,163,255,.18); }
+
+    .command-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .command-row {
+      display: grid;
+      grid-template-columns: minmax(190px, .55fr) minmax(0, 1fr);
+      gap: 16px;
+      align-items: center;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: rgba(0,0,0,.16);
+    }
+
+    .command-row .desc { color: var(--ink-muted); }
+
+    .note {
+      border-left: 4px solid var(--amber);
+      background: rgba(255, 191, 95, .09);
+      padding: 16px 18px;
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      color: #f8dfb8;
+    }
+
+    .warning {
+      border-left-color: var(--red);
+      background: rgba(255, 117, 108, .09);
+      color: #ffd2cd;
+    }
+
+    .map {
+      font-family: var(--mono);
+      white-space: pre;
+      overflow: auto;
+      color: var(--green);
+      background: rgba(0,0,0,.24);
+      border: 1px solid rgba(144, 210, 109, .22);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+    }
+
+    .filter-box {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin: 20px 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(0,0,0,.18);
+      padding: 8px 12px;
+    }
+
+    .filter-box span { color: var(--blue); font-family: var(--mono); }
+
+    .filter-box input {
+      flex: 1;
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      color: var(--ink);
+      background: transparent;
+      font: 15px var(--sans);
+    }
+
+    .filter-box input::placeholder { color: rgba(244,234,215,.45); }
+
+    .footer {
+      border-top: 1px solid var(--line);
+      padding: 24px clamp(24px, 5vw, 56px);
+      color: var(--ink-muted);
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 14px;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      animation: reveal .72s ease forwards;
+    }
+    .delay-1 { animation-delay: .08s; }
+    .delay-2 { animation-delay: .16s; }
+    .delay-3 { animation-delay: .24s; }
+    @keyframes reveal { to { opacity: 1; transform: none; } }
+
+    @media (max-width: 920px) {
+      .hero-grid,
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: relative; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); }
+      .nav-scroll { display: flex; overflow: auto; gap: 6px; padding-bottom: 4px; }
+      .nav-link { white-space: nowrap; }
+      .concept-grid,
+      .command-grid { grid-template-columns: 1fr; }
+      .section-title { align-items: start; flex-direction: column; }
+      .section-title p { text-align: left; }
+    }
+
+    @media (max-width: 620px) {
+      .shell-frame { width: min(100% - 18px, 1180px); margin-top: 9px; border-radius: 24px; }
+      .hero { padding: 26px 18px; }
+      main { padding: 24px 18px; }
+      .quick-grid { grid-template-columns: 1fr; }
+      .command-row { grid-template-columns: 1fr; }
+      h1 { font-size: 54px; }
+    }
+
+    @media print {
+      body { background: white; color: #191919; }
+      body::before, body::after, .sidebar, .topbar, .hero-actions, .copy-btn { display: none !important; }
+      .shell-frame { box-shadow: none; width: 100%; border: 0; margin: 0; background: white; }
+      .hero, main, .footer { padding: 18px; }
+      .layout, .hero-grid { display: block; }
+      .card, .concept, .command-row, .summary-card, .terminal { break-inside: avoid; color: #191919; background: white; border-color: #ccc; }
+      pre, .map { color: #111; background: #f6f6f6; }
+      kbd { color: #111; background: #eee; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell-frame">
+    <div class="topbar" aria-label="Janela decorativa estilo terminal">
+      <div class="dots" aria-hidden="true"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span></div>
+      <div class="path">~/.config/tmux/tmux.conf · guia pessoal</div>
+      <div>tmux 3.6a</div>
+    </div>
+
+    <header class="hero">
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow reveal"><span class="pulse"></span> Manual local · Rafael</div>
+          <h1 class="reveal delay-1">tmux sem mistério</h1>
+          <p class="lead reveal delay-2">Um guia estático baseado na sua configuração atual: prefix em <strong>Ctrl+Espaço</strong>, navegação rápida com <strong>Alt</strong>, panes com <strong>Ctrl+Alt</strong>, mouse ligado e modo cópia em estilo Vim.</p>
+          <div class="hero-actions reveal delay-3">
+            <a class="button primary" href="#resumo">Ver comandos essenciais</a>
+            <a class="button" href="#fluxo">Começar pelo fluxo recomendado</a>
+            <a class="button" href="#cheatsheet">Cheat sheet completo</a>
+          </div>
+        </div>
+
+        <aside id="resumo" class="summary-card reveal delay-2" aria-labelledby="summary-title">
+          <div class="summary-head">
+            <h2 id="summary-title">Resumo de bolso</h2>
+            <span class="badge">mais usados</span>
+          </div>
+          <div class="quick-grid">
+            <article class="quick-command">
+              <div class="keys"><kbd>Ctrl</kbd><kbd>Espaço</kbd></div>
+              <strong>Prefix principal</strong>
+              <span>Use antes dos comandos internos do tmux. Também funciona <kbd>Ctrl</kbd> <kbd>b</kbd>.</span>
+            </article>
+            <article class="quick-command">
+              <div class="keys"><kbd>Prefix</kbd><kbd>c</kbd></div>
+              <strong>Nova janela</strong>
+              <span>Cria uma aba nova no mesmo diretório atual.</span>
+            </article>
+            <article class="quick-command">
+              <div class="keys"><kbd>Prefix</kbd><kbd>v</kbd></div>
+              <strong>Pane lado a lado</strong>
+              <span>Divide a tela em esquerda/direita.</span>
+            </article>
+            <article class="quick-command">
+              <div class="keys"><kbd>Prefix</kbd><kbd>h</kbd></div>
+              <strong>Pane cima/baixo</strong>
+              <span>Divide a tela horizontalmente.</span>
+            </article>
+            <article class="quick-command">
+              <div class="keys"><kbd>Alt</kbd><kbd>1..9</kbd></div>
+              <strong>Ir para janela</strong>
+              <span>Troca direto para a janela pelo número.</span>
+            </article>
+            <article class="quick-command">
+              <div class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Setas</kbd></div>
+              <strong>Navegar panes</strong>
+              <span>Move o foco sem precisar apertar prefix.</span>
+            </article>
+            <article class="quick-command">
+              <div class="keys"><kbd>Prefix</kbd><kbd>[</kbd></div>
+              <strong>Modo cópia</strong>
+              <span>Scroll, busca e seleção com atalhos de Vim.</span>
+            </article>
+            <article class="quick-command">
+              <div class="keys"><kbd>Prefix</kbd><kbd>d</kbd></div>
+              <strong>Desanexar</strong>
+              <span>Sai do tmux deixando processos rodando.</span>
+            </article>
+          </div>
+        </aside>
+      </div>
+    </header>
+
+    <div class="layout">
+      <nav class="sidebar" aria-label="Navegação do guia">
+        <h2>Mapa do guia</h2>
+        <div class="nav-scroll">
+          <a class="nav-link" href="#conceitos">Conceitos</a>
+          <a class="nav-link" href="#abrir">Abrir e voltar</a>
+          <a class="nav-link" href="#prefix">Prefix</a>
+          <a class="nav-link" href="#janelas">Janelas</a>
+          <a class="nav-link" href="#panes">Panes</a>
+          <a class="nav-link" href="#sessoes">Sessões</a>
+          <a class="nav-link" href="#copia">Cópia e scroll</a>
+          <a class="nav-link" href="#mouse">Mouse</a>
+          <a class="nav-link" href="#config">Config</a>
+          <a class="nav-link" href="#fluxo">Fluxo recomendado</a>
+          <a class="nav-link" href="#cheatsheet">Cheat sheet</a>
+        </div>
+      </nav>
+
+      <main>
+        <section id="conceitos">
+          <div class="section-title">
+            <h2>1. Conceitos básicos</h2>
+            <p>Pense em sessão, janela e pane como camadas do seu ambiente de trabalho.</p>
+          </div>
+          <div class="concept-grid">
+            <div class="concept"><b>Sessão</b><p>Um workspace inteiro do tmux. Pode continuar vivo mesmo depois que você fecha o terminal.</p></div>
+            <div class="concept"><b>Janela</b><p>Como uma aba dentro da sessão. Boa para separar editor, git, logs e servidor.</p></div>
+            <div class="concept"><b>Pane</b><p>Uma divisão da tela dentro de uma janela. Ideal para rodar comandos lado a lado.</p></div>
+          </div>
+          <div class="map" aria-label="Exemplo de estrutura do tmux">Sessão: trabalho
+  Janela 1: editor
+    Pane 1: nvim
+    Pane 2: servidor
+  Janela 2: git
+  Janela 3: logs</div>
+        </section>
+
+        <section id="abrir">
+          <div class="section-title">
+            <h2>2. Abrir, sair e voltar</h2>
+            <p>O superpoder do tmux é deixar tudo rodando.</p>
+          </div>
+          <div class="terminal"><div class="terminal-label">criar sessão <button class="copy-btn" data-copy="tmux new -s trabalho">copiar</button></div><pre><code>tmux new -s trabalho</code></pre></div>
+          <div class="terminal"><div class="terminal-label">listar e voltar <button class="copy-btn" data-copy="tmux ls\ntmux attach -t trabalho">copiar</button></div><pre><code>tmux ls
+tmux attach -t trabalho</code></pre></div>
+          <div class="command-list">
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>d</kbd></div><div class="desc">Desanexa da sessão atual sem matar seus processos.</div></div>
+            <div class="command-row"><code>tmux attach</code><div class="desc">Volta para a sessão existente, quando houver apenas uma.</div></div>
+            <div class="command-row"><code>tmux kill-session -t trabalho</code><div class="desc">Mata uma sessão específica pelo nome.</div></div>
+          </div>
+        </section>
+
+        <section id="prefix">
+          <div class="section-title">
+            <h2>3. Seu Prefix</h2>
+            <p>O prefix é a tecla que avisa ao tmux: “o próximo comando é para você”.</p>
+          </div>
+          <div class="card">
+            <p>Na sua configuração, o prefix principal é:</p>
+            <div class="keys"><kbd>Ctrl</kbd><kbd>Espaço</kbd></div>
+            <p>O prefix tradicional também continua disponível:</p>
+            <div class="keys"><kbd>Ctrl</kbd><kbd>b</kbd></div>
+          </div>
+          <p class="note">Quando este guia disser <strong>Prefix + c</strong>, faça: aperte <strong>Ctrl+Espaço</strong>, solte, depois aperte <strong>c</strong>.</p>
+        </section>
+
+        <section id="janelas">
+          <div class="section-title">
+            <h2>4. Janelas</h2>
+            <p>Janelas funcionam como abas. A sua config começa em 1, não em 0.</p>
+          </div>
+          <div class="command-list">
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>c</kbd></div><div class="desc">Cria nova janela no mesmo diretório do pane atual.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>r</kbd></div><div class="desc">Renomeia a janela atual.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>k</kbd></div><div class="desc">Fecha a janela atual.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Alt</kbd><kbd>1..9</kbd></div><div class="desc">Vai direto para a janela pelo número.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Alt</kbd><kbd>←</kbd>/<kbd>→</kbd></div><div class="desc">Vai para a janela anterior ou próxima.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Alt</kbd><kbd>Shift</kbd><kbd>←</kbd>/<kbd>→</kbd></div><div class="desc">Move a janela atual para esquerda ou direita.</div></div>
+          </div>
+        </section>
+
+        <section id="panes">
+          <div class="section-title">
+            <h2>5. Panes</h2>
+            <p>Divisões rápidas para editor, servidor, testes e logs no mesmo lugar.</p>
+          </div>
+          <div class="command-list">
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>h</kbd></div><div class="desc">Divide em cima/baixo. Na config: <code>split-window -v</code>.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>v</kbd></div><div class="desc">Divide lado a lado. Na config: <code>split-window -h</code>.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>x</kbd></div><div class="desc">Fecha o pane atual.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Setas</kbd></div><div class="desc">Navega entre panes sem usar prefix.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Shift</kbd><kbd>Setas</kbd></div><div class="desc">Redimensiona panes de 5 em 5 células.</div></div>
+          </div>
+          <p class="note warning">Atenção: <strong>Prefix+x</strong>, <strong>Prefix+k</strong> e <strong>Prefix+K</strong> fecham coisas. Use com intenção.</p>
+        </section>
+
+        <section id="sessoes">
+          <div class="section-title">
+            <h2>6. Sessões</h2>
+            <p>Use sessões para separar projetos, clientes ou contextos de trabalho.</p>
+          </div>
+          <div class="command-list">
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>R</kbd></div><div class="desc">Renomeia a sessão atual.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>C</kbd></div><div class="desc">Cria uma nova sessão no diretório atual.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>K</kbd></div><div class="desc">Mata a sessão atual.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>P</kbd>/<kbd>N</kbd></div><div class="desc">Vai para a sessão anterior ou próxima.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Alt</kbd><kbd>↑</kbd>/<kbd>↓</kbd></div><div class="desc">Troca de sessão sem prefix.</div></div>
+          </div>
+        </section>
+
+        <section id="copia">
+          <div class="section-title">
+            <h2>7. Cópia, scroll e busca</h2>
+            <p>Você usa modo vi para copiar e navegar no histórico.</p>
+          </div>
+          <div class="command-list">
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>[</kbd></div><div class="desc">Entra no modo cópia.</div></div>
+            <div class="command-row"><div class="keys"><kbd>h</kbd><kbd>j</kbd><kbd>k</kbd><kbd>l</kbd></div><div class="desc">Navega como no Vim dentro do modo cópia.</div></div>
+            <div class="command-row"><div class="keys"><kbd>/</kbd></div><div class="desc">Busca para frente.</div></div>
+            <div class="command-row"><div class="keys"><kbd>?</kbd></div><div class="desc">Busca para trás.</div></div>
+            <div class="command-row"><div class="keys"><kbd>n</kbd>/<kbd>N</kbd></div><div class="desc">Próxima ocorrência ou ocorrência anterior.</div></div>
+            <div class="command-row"><div class="keys"><kbd>v</kbd></div><div class="desc">Começa uma seleção.</div></div>
+            <div class="command-row"><div class="keys"><kbd>y</kbd></div><div class="desc">Copia a seleção e sai do modo cópia.</div></div>
+            <div class="command-row"><div class="keys"><kbd>q</kbd></div><div class="desc">Sai do modo cópia.</div></div>
+          </div>
+        </section>
+
+        <section id="mouse">
+          <div class="section-title">
+            <h2>8. Mouse ligado</h2>
+            <p>Sua config habilita mouse para reduzir atrito no uso diário.</p>
+          </div>
+          <div class="card">
+            <p>Você tem <code>set -g mouse on</code>. Isso permite clicar em panes, clicar nas janelas da barra, rolar histórico com o scroll e redimensionar panes com o mouse.</p>
+          </div>
+        </section>
+
+        <section id="config">
+          <div class="section-title">
+            <h2>9. Recarregar config</h2>
+            <p>Depois de editar o arquivo, recarregue sem reiniciar o tmux.</p>
+          </div>
+          <div class="command-list">
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>q</kbd></div><div class="desc">Recarrega <code>~/.config/tmux/tmux.conf</code> e mostra “Configuration reloaded”.</div></div>
+          </div>
+          <div class="terminal"><div class="terminal-label">alternativa pelo terminal <button class="copy-btn" data-copy="tmux source-file ~/.config/tmux/tmux.conf">copiar</button></div><pre><code>tmux source-file ~/.config/tmux/tmux.conf</code></pre></div>
+        </section>
+
+        <section id="fluxo">
+          <div class="section-title">
+            <h2>10. Fluxo recomendado</h2>
+            <p>Uma rotina simples para ganhar memória muscular.</p>
+          </div>
+          <div class="terminal"><div class="terminal-label">comece uma sessão <button class="copy-btn" data-copy="tmux new -s dev">copiar</button></div><pre><code>tmux new -s dev</code></pre></div>
+          <div class="command-list">
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>c</kbd></div><div class="desc">Crie uma janela nova.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>r</kbd></div><div class="desc">Renomeie para algo como <code>editor</code>, <code>git</code> ou <code>logs</code>.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>v</kbd></div><div class="desc">Divida lado a lado.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>←</kbd>/<kbd>→</kbd></div><div class="desc">Alterne entre panes.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Alt</kbd><kbd>1</kbd>/<kbd>2</kbd></div><div class="desc">Alterne entre janelas.</div></div>
+            <div class="command-row"><div class="keys"><kbd>Prefix</kbd><kbd>d</kbd></div><div class="desc">Saia sem matar nada. Volte depois com <code>tmux attach -t dev</code>.</div></div>
+          </div>
+        </section>
+
+        <section id="cheatsheet">
+          <div class="section-title">
+            <h2>11. Cheat sheet pesquisável</h2>
+            <p>Digite para filtrar por assunto, tecla ou ação.</p>
+          </div>
+          <div class="filter-box"><span>⌕</span><input id="filter" type="search" placeholder="ex: pane, janela, copiar, sessão, Alt..." autocomplete="off" /></div>
+          <div class="command-list" id="cheatList">
+            <div class="command-row" data-tags="prefix ctrl espaço ctrl b"><div class="keys"><kbd>Ctrl</kbd><kbd>Espaço</kbd></div><div class="desc"><strong>Prefix principal.</strong> Alternativo: <kbd>Ctrl</kbd> <kbd>b</kbd>.</div></div>
+            <div class="command-row" data-tags="janela nova window c"><div class="keys"><kbd>Prefix</kbd><kbd>c</kbd></div><div class="desc">Nova janela.</div></div>
+            <div class="command-row" data-tags="janela renomear rename r"><div class="keys"><kbd>Prefix</kbd><kbd>r</kbd></div><div class="desc">Renomear janela.</div></div>
+            <div class="command-row" data-tags="janela matar fechar kill k"><div class="keys"><kbd>Prefix</kbd><kbd>k</kbd></div><div class="desc">Matar janela.</div></div>
+            <div class="command-row" data-tags="janela selecionar alt números"><div class="keys"><kbd>Alt</kbd><kbd>1..9</kbd></div><div class="desc">Ir para janela pelo número.</div></div>
+            <div class="command-row" data-tags="janela anterior proxima alt seta"><div class="keys"><kbd>Alt</kbd><kbd>←</kbd>/<kbd>→</kbd></div><div class="desc">Janela anterior/próxima.</div></div>
+            <div class="command-row" data-tags="pane split horizontal cima baixo h"><div class="keys"><kbd>Prefix</kbd><kbd>h</kbd></div><div class="desc">Dividir pane em cima/baixo.</div></div>
+            <div class="command-row" data-tags="pane split vertical lado v"><div class="keys"><kbd>Prefix</kbd><kbd>v</kbd></div><div class="desc">Dividir pane lado a lado.</div></div>
+            <div class="command-row" data-tags="pane fechar matar kill x"><div class="keys"><kbd>Prefix</kbd><kbd>x</kbd></div><div class="desc">Matar pane.</div></div>
+            <div class="command-row" data-tags="pane navegar foco ctrl alt setas"><div class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Setas</kbd></div><div class="desc">Navegar entre panes.</div></div>
+            <div class="command-row" data-tags="pane resize tamanho redimensionar ctrl alt shift"><div class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Shift</kbd><kbd>Setas</kbd></div><div class="desc">Redimensionar pane.</div></div>
+            <div class="command-row" data-tags="sessão renomear session R"><div class="keys"><kbd>Prefix</kbd><kbd>R</kbd></div><div class="desc">Renomear sessão.</div></div>
+            <div class="command-row" data-tags="sessão nova session C"><div class="keys"><kbd>Prefix</kbd><kbd>C</kbd></div><div class="desc">Nova sessão.</div></div>
+            <div class="command-row" data-tags="sessão matar fechar kill K"><div class="keys"><kbd>Prefix</kbd><kbd>K</kbd></div><div class="desc">Matar sessão.</div></div>
+            <div class="command-row" data-tags="sessão anterior próxima P N"><div class="keys"><kbd>Prefix</kbd><kbd>P</kbd>/<kbd>N</kbd></div><div class="desc">Sessão anterior/próxima.</div></div>
+            <div class="command-row" data-tags="copia scroll copy mode"><div class="keys"><kbd>Prefix</kbd><kbd>[</kbd></div><div class="desc">Entrar no modo cópia.</div></div>
+            <div class="command-row" data-tags="copia selecionar vim"><div class="keys"><kbd>v</kbd></div><div class="desc">Começar seleção no modo cópia.</div></div>
+            <div class="command-row" data-tags="copia copiar yank"><div class="keys"><kbd>y</kbd></div><div class="desc">Copiar seleção e sair.</div></div>
+            <div class="command-row" data-tags="buscar search localizar"><div class="keys"><kbd>/</kbd>/<kbd>?</kbd></div><div class="desc">Buscar para frente ou para trás no modo cópia.</div></div>
+            <div class="command-row" data-tags="config reload recarregar q"><div class="keys"><kbd>Prefix</kbd><kbd>q</kbd></div><div class="desc">Recarregar configuração.</div></div>
+            <div class="command-row" data-tags="detach sair desanexar d"><div class="keys"><kbd>Prefix</kbd><kbd>d</kbd></div><div class="desc">Desanexar da sessão, deixando tudo rodando.</div></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer class="footer">
+      <span>Arquivo único: HTML + CSS + JS embutidos.</span>
+      <span>Baseado em <code>~/.config/tmux/tmux.conf</code></span>
+    </footer>
+  </div>
+
+  <script>
+    const copyButtons = document.querySelectorAll('[data-copy]');
+    copyButtons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        const original = button.textContent;
+        try {
+          await navigator.clipboard.writeText(button.dataset.copy);
+          button.textContent = 'copiado';
+        } catch (_) {
+          button.textContent = 'copie manualmente';
+        }
+        setTimeout(() => { button.textContent = original; }, 1200);
+      });
+    });
+
+    const filter = document.querySelector('#filter');
+    const cheatRows = Array.from(document.querySelectorAll('#cheatList .command-row'));
+    if (filter) {
+      filter.addEventListener('input', () => {
+        const query = filter.value.trim().toLowerCase();
+        cheatRows.forEach((row) => {
+          const text = (row.textContent + ' ' + row.dataset.tags).toLowerCase();
+          row.style.display = text.includes(query) ? '' : 'none';
+        });
+      });
+    }
+
+    const navLinks = Array.from(document.querySelectorAll('.nav-link'));
+    const sections = navLinks
+      .map(link => document.querySelector(link.getAttribute('href')))
+      .filter(Boolean);
+
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter(entry => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      navLinks.forEach(link => {
+        link.classList.toggle('active', link.getAttribute('href') === '#' + visible.target.id);
+      });
+    }, { rootMargin: '-20% 0px -65% 0px', threshold: [0, .2, .6, 1] });
+
+    sections.forEach(section => observer.observe(section));
+  </script>
+</body>
+</html>

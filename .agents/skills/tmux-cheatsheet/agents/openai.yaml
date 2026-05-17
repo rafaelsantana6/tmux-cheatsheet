@@ -1,0 +1,9 @@
+interface:
+  display_name: "Tmux Cheatsheet"
+  short_description: "Atalhos tmux pessoais do Rafael"
+  icon_small: "./assets/tmux-icon.png"
+  icon_large: "./assets/tmux-icon.png"
+  brand_color: "#4DA3FF"
+  default_prompt: "Use $tmux-cheatsheet para me explicar como faço uma tarefa no tmux com meus atalhos pessoais."
+policy:
+  allow_implicit_invocation: true
